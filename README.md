@@ -1,6 +1,10 @@
 # EnOcean_ESP8266_Gateway
 Enocean Gateway 1to1 Telegram to TCP over WiFi, inkl OTA and Wifi Manager 
 
+I wasn't satisfied with the gateways to buy. In my opinion, they misunderstood the word gateway or simply want a dependency on their products and implementations.
+
+In my opinion an Enocean to Wifi gateway has to fulfill one requirement.
+Pass on the telegrams 1 to 1 so that the telegrams can be disassembled and interpreted no matter where.
 
 You can use the Enocean Telegram anywhere.
 Establish a TCP connection on port 9999 - and for the diagnostic port 9998.
