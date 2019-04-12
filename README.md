@@ -6,6 +6,9 @@ I wasn't satisfied with the gateways to buy. In my opinion, they misunderstood t
 In my opinion an Enocean to Wifi gateway has to fulfill one requirement.
 Pass on the telegrams 1 to 1 so that the telegrams can be disassembled and interpreted no matter where.
 
+Also from the idea with a Raspberry was insufficient for my purpose. Why should I use a "power guzzler" like a Rapsberry for a Gateway funktuion, for a small room this is the solution.
+A gateway and immediately a zb node red server on one device. With a house it gets stupider if you have to install several raspberry just to convert the telegrams to wifi.
+
 You can use the Enocean Telegram anywhere.
 Establish a TCP connection on port 9999 - and for the diagnostic port 9998.
 
