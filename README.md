@@ -1,5 +1,5 @@
 # EnOcean_ESP8266_Gateway
-An EnOcean Gateway, enocean telegram 1to1 to TCP over Wifi - inkl OTA and Wifi Manager
+Enocean Gateway 1to1 Telegram to TCP over WiFi, inkl OTA and Wifi Manager 
 
 
 You can use the Enocean Telegram anywhere.
