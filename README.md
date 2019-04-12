@@ -12,4 +12,4 @@ With it you can easily configure the wifi connection to your router and don't ha
 OTA is also possible - which can be easily installed via the wifi in case of updates.
 
 I also have my own development of a hardware gateway with the Enocean Shield for the Raspberry.
-I will upload the Gerber files and photos as soon as possible.
+Check out the https://github.com/Techserv-krY/EnOcean_ESP8266_Gateway/wiki
