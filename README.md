@@ -12,6 +12,8 @@ A gateway and immediately a e.g. node red,fhem or ipsymcon server on one device.
 You can use the Enocean Telegram anywhere.
 Establish a TCP connection on port 9999 - and for the diagnostic port 9998.
 
+The only thing my Gateway checks out, is it an enocean telegram with the start preffix 0x55 and is the CRC correct. If true send the whole telegram or if false reject it.
+
 I use it with Node-Red. A description and how I work with the single EEPs in Node-Red will be available later on.
 
 OTA & Wifi Manager has been implemented from https://github.com/Pedroalbuquerque/ESPBASE . Thanks to them!
