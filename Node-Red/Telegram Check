@@ -1,3 +1,7 @@
+#
+#https://github.com/Techserv-krY/EnOcean_ESP8266_Gateway/wiki/New-way-to-split-Telegram-and-check-and-cut-Multitelegram-and-Response-in-Node-Red
+#Check response telegram / crc check / send out ( shield oder device ) to mysql
+#
 // ---- START ----
 buf = msg.payload;
 delete msg.payload;
