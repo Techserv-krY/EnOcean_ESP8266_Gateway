@@ -89,6 +89,7 @@ function crc_check(a_buf){
             else {
                 node.warn("CRC not valid"); 
                 node.error(crc8h + "!=" + u8CRC_h + " " + crc8d + "!=" + u8CRC_d);
+                return;
             }
         }
     }
@@ -108,17 +109,23 @@ function send_out(eno_buf,data,opt_data,data_length){
         msg.telegram = { "DeviceID":device, "Data":data, "OptData":opt_data };
     }
     else { //if new Device found insert in SQL otherwise select 
-        deviceID = data.slice((data_length - 5), - 4);
-        length = deviceID.length;
-        if (deviceID[0] !== 0xff && length !== 0){// length = check for response telegram - we don`t need them
-            device = data.slice((data_length - 5), - 1);
+        device = data.slice((data_length - 5), - 1);
+        device_length = device.length;
+        if (device[0] !== 0xff && device_length !== 0){// length = check for response telegram - we don`t need them
             device = Buffer.from(device ,"hex");
             device = device.toString("hex");
             msg.topic = "INSERT IGNORE INTO `node_eno_devices` (`created`, `modified`, `deviceid`) VALUES ( now(), now(), '" + device + "'); select * from `node_eno_devices` where deviceid = '" + device + "'";
             msg.telegram = {"DeviceID":device, "Data":data, "OptData":opt_data };
         }
         else{
-            return;
+            if (deviceID_length === 0){ // for Debug Response 
+            //   node.warn("Debug Response");
+            //   node.error(eno_buf);
+                return;
+            }
+            else{
+                return;
+            }
         }
     }
     node.send(msg);
