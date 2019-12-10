@@ -85,7 +85,6 @@ function crc_check(a_buf){
                     multi_function(buf_sec,eno_buf, data, opt_data, data_length);
                 }
                 while(single_buf === false);
-                send_out(eno_buf,data,opt_data,data_length);
             }
             else {
                 node.warn("CRC not valid"); 
