@@ -6,53 +6,7 @@
 buf = msg.payload;
 delete msg.payload;
 
-ret_ok = buf.indexOf(Buffer.from([85,0,1,0,2,101,0,0])); //RESPONSE message RET_OK - we dont need and use it
-ret_wrong = buf.indexOf(Buffer.from([85,0,1,0,2,101,3,9])); // RESPONSE message RET_WRONG_PARAM - has to cut out because of multiple Gateways
-
-if (ret_ok < 0 && ret_wrong < 0){
-    crc_check(buf); // jump to function crc_check ()
-}else{
-    response(); // delete Response message
-}
-
-
-function response() {
-    // check and delete  ret_ok in while loop 
-    ret_ok = buf.indexOf(Buffer.from([85,0,1,0,2,101,0,0]));
-    y = buf.length;
-    while (ret_ok >= 0) {
-        if (ret_ok === 0){
-            buf = buf.slice(ret_ok+8,y);
-            ret_ok = buf.indexOf(Buffer.from([85,0,1,0,2,101,0,0]));
-        }else{
-            part1 = buf.slice(0,ret_ok);
-            part2 = buf.slice(ret_ok+8,y);
-            arr = [part1, part2];
-            buf2 = Buffer.concat(arr);
-            buf = buf2;
-            ret_ok = buf.indexOf(Buffer.from([85,0,1,0,2,101,0,0]));
-        }
-    }
-    // check and delete  ret_wrong in while loop 
-    ret_wrong = buf.indexOf(Buffer.from([85,0,1,0,2,101,3,9]));
-    y = buf.length;
-    while (ret_wrong >= 0){
-        if (ret_wrong === 0){
-            buf = buf.slice(ret_wrong+8,y);
-            ret_wrong = buf.indexOf(Buffer.from([85,0,1,0,2,101,3,9]));
-        }else{
-            part1 = buf.slice(0,ret_wrong);
-            part2 = buf.slice(ret_wrong+8,y);
-            arr = [part1, part2];
-            buf2 = Buffer.concat(arr);
-            buf = buf2;
-            ret_wrong = buf.indexOf(Buffer.from([85,0,1,0,2,101,3,9]));
-        }
-    }
-    crc_check(buf);
-}
-
-
+crc_check(buf);
 
 // CRC check
 function crc_check(a_buf){
@@ -131,6 +85,7 @@ function crc_check(a_buf){
                     multi_function(buf_sec,eno_buf, data, opt_data, data_length);
                 }
                 while(single_buf === false);
+                send_out(eno_buf,data,opt_data,data_length);
             }
             else {
                 node.warn("CRC not valid"); 
@@ -155,7 +110,8 @@ function send_out(eno_buf,data,opt_data,data_length){
     }
     else { //if new Device found insert in SQL otherwise select 
         deviceID = data.slice((data_length - 5), - 4);
-        if (deviceID[0] !== 0xff){
+        length = deviceID.length;
+        if (deviceID[0] !== 0xff && length !== 0){// length = check for response telegram - we don`t need them
             device = data.slice((data_length - 5), - 1);
             device = Buffer.from(device ,"hex");
             device = device.toString("hex");
