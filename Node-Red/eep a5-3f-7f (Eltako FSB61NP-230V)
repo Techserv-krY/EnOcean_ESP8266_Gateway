@@ -1,0 +1,200 @@
+var shield = msg.payload[1][0].shield;
+var id = msg.ID;
+if (shield !== id){
+    return;
+}
+var eep = msg.payload[1][0].eep;
+if (eep === "a5-3f-7f"){
+    var name = msg.payload[1][0].name;
+    var device = msg.telegram.DeviceID;
+    shield_cut = shield.slice(0,-2);
+    baseid = msg.payload[1][0].baseid;
+    baseid = parseInt(baseid, 10).toString(16);
+    baseid = baseid.padStart(2,"0");
+    var baseid = shield_cut + baseid;
+    var profile = msg.telegram.Data[0];
+    var rssi = msg.telegram.OptData[5];
+    var wert1 = msg.payload[1][0].wert1;
+    var wert2 = msg.payload[1][0].wert2;
+    var wert3 = msg.payload[1][0].wert3;
+    var wert4 = msg.payload[1][0].wert4;
+    var gruppe1 = msg.payload[1][0].gruppe1;
+    var gruppe2 = msg.payload[1][0].gruppe2;
+    var gruppe3 = msg.payload[1][0].gruppe3;
+    var gruppe4 = msg.payload[1][0].gruppe4;
+    
+    if (profile === 0xf6) {
+        telegram1();
+    }else if (profile === 0xa5) {
+            setTimeout(telegram2, 5000);
+    }
+}
+function telegram1 () {
+        var db30 = msg.telegram.Data[1];
+        status = msg.telegram.Data[6];
+        var cond_slider_mem = parseInt(global.get(name + "_%"));
+        var cond_slider_s_mem = parseInt(global.get(name + "_slate_%"));
+        switch(db30){
+            case 0x01: {
+                
+                condition = "Fährt hoch";
+                condition_s = "Moving";
+                cond_slider = cond_slider_mem;
+                cond_slider_s = cond_slider_s_mem;
+                global.set(name, "Fährt hoch");
+            }
+            break;
+            case 0x02: {
+                condition = "Fährt runter";
+                condition_s = "Moving";
+                cond_slider = cond_slider_mem;
+                cond_slider_s = cond_slider_s_mem;
+                global.set(name, "Fährt runter");
+            }
+            break;
+            case 0x50: {
+                condition = "Endlage unten";
+                condition_s = 0  + " %";
+                cond_slider = 0;
+                cond_slider_s = 0;
+                global.set(name, "Endlage unten");
+                global.set(name + "_%", 0);
+                global.set(name + "_slate_%", 0);
+            }
+            break;
+            case 0x70: {
+                condition = "Endlage oben";
+                condition_s = 100  + " %";
+                cond_slider = 100;
+                cond_slider_s = 100;
+                global.set(name, "Endlage oben");
+                global.set(name + "_%", 100);
+                global.set(name + "_slate_%", 100);
+            }
+            break;
+            
+            default: {
+            return;
+            }
+        }
+        telegram_send();
+}
+function telegram2 () {
+    db3 = msg.telegram.Data[1];
+    var db3 = (db3*25.5);
+    db2 = msg.telegram.Data[2];
+    db2 = (db2*100);
+    var db2 = (db2/1000);
+    var way = msg.telegram.Data[3];
+    var taster = msg.telegram.Data[4];
+    status = msg.telegram.Data[9];
+    var time = (db3+db2);
+    var ist = parseInt(global.get(name + "_%"));
+    var ist_s = parseInt(global.get(name + "_slate_%"));
+    switch (way) {
+        case 0x01: {
+            prozentup = parseInt((100/(wert1)*time).toFixed(0));
+            prozent = (ist + prozentup);
+            prozentup_s = parseInt((100/(wert3)*time).toFixed(0));
+            prozent_s = (ist_s + prozentup_s);
+            if (prozent >= 100) {
+                condition = "Endlage oben";
+                condition_s = 100 + " %";
+                cond_slider = 100;
+                cond_slider_s = 100;
+                global.set(name, "hochgefahren");
+                global.set(name + "_%", 100);
+                global.set(name + "_slate_%", 100);
+                }else{
+                if (prozent_s >= 100){
+                    condition = prozent + " %";
+                    condition_s = 100 + " %";
+                    cond_slider = prozent;
+                    cond_slider_s = 100;
+                    global.set(name, "hochgefahren");
+                    global.set(name + "_%", prozent);
+                    global.set(name + "_slate_%", 100);
+                }else{
+                    condition = prozent + " %";
+                    condition_s = prozent_s + " %";
+                    cond_slider = prozent;
+                    cond_slider_s = prozent_s;
+                    global.set(name, "hochgefahren");                                
+                    global.set(name + "_%", prozent);
+                    global.set(name + "_slate_%", prozent_s);
+                }
+            }
+        }
+        break;
+        case 0x02: {
+            prozentdown = parseInt((100/(wert2)*time).toFixed(0));
+            prozent = (ist - prozentdown);
+            prozentdown_s = parseInt((100/(wert4)*time).toFixed(0));
+            prozent_s = (ist_s - prozentdown_s);
+            if (prozent <= 0) {
+                condition = "Endlage unten";
+                condition_s = 0 + " %";
+                cond_slider = 0;
+                cond_slider_s = 0;
+                global.set(name, "runtergefahren");
+                global.set(name + "_%", 0);
+                global.set(name + "_slate_%", 0);
+            }else{
+                if (prozent_s <= 0){
+                    condition = prozent + " %";
+                    condition_s = 0 + " %";
+                    cond_slider = prozent;
+                    cond_slider_s = 0;
+                    global.set(name, "runtergefahren");
+                    global.set(name + "_%", prozent);
+                    global.set(name + "_slate_%", 0);
+                }else{
+                    condition = prozent + " %";
+                    condition_s = prozent_s + " %";
+                    cond_slider = prozent;
+                    cond_slider_s = prozent_s;
+                    global.set(name, "runtergefahren");
+                    global.set(name + "_%", prozent);
+                    global.set(name + "_slate_%", prozent_s);
+                }
+            }
+        }
+        break;
+        default: {
+        return;
+        }
+    }
+    telegram_send();
+}
+
+function telegram_send () {
+    msg.topic = "select * from `node_eno_shields` where shield = '" + shield + "'";
+    msg.bundle = {"info":{
+                        "name":name,
+                        "device":device,
+                        "baseid":baseid,
+                        "shield":shield
+                        },
+                    "sql":{
+                        "wert1":wert1,
+                        "wert2":wert2,
+                        "wert3":wert3,
+                        "wert4":wert4,
+                        "gruppe1":gruppe1,
+                        "gruppe2":gruppe2,
+                        "gruppe3":gruppe3,
+                        "gruppe4":gruppe4
+                        },
+                    "telegram":{
+                        "condition":condition,
+                        "condition_s":condition_s,
+                        "cond_slider":cond_slider,
+                        "cond_slider_s":cond_slider_s,
+                        "status":status,
+                        "rssi":rssi
+                        }
+                };
+    node.send(msg);
+return;
+}
+return;
