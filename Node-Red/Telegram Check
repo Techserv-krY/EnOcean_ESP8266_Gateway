@@ -118,7 +118,7 @@ function send_out(eno_buf,data,opt_data,data_length){
             msg.telegram = {"DeviceID":device, "Data":data, "OptData":opt_data };
         }
         else{
-            if (deviceID_length === 0){ // for Debug Response 
+            if (device_length === 0){ // for Debug Response 
             //   node.warn("Debug Response");
             //   node.error(eno_buf);
                 return;
