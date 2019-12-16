@@ -5,6 +5,7 @@
 // ---- START ----
 buf = msg.payload;
 delete msg.payload;
+var id = msg.ID;
 
 crc_check(buf);
 
@@ -114,7 +115,7 @@ function send_out(eno_buf,data,opt_data,data_length){
         if (device[0] !== 0xff && device_length !== 0){// length = check for response telegram - we don`t need them
             device = Buffer.from(device ,"hex");
             device = device.toString("hex");
-            msg.topic = "INSERT IGNORE INTO `node_eno_devices` (`created`, `modified`, `deviceid`) VALUES ( now(), now(), '" + device + "'); select * from `node_eno_devices` where deviceid = '" + device + "'";
+            msg.topic = "INSERT IGNORE INTO `node_eno_devices` (`created`, `modified`, `deviceid`) VALUES ( now(), now(), '" + device + "'); SELECT `node_eno_devices`.* , `node_eno_shields`.`build`, `node_eno_shields`.`floor`, `node_eno_shields`.`room`, `node_eno_shields`.`ip` FROM `node_eno_devices` INNER JOIN `node_eno_shields` ON `node_eno_devices`.`shield` = `node_eno_shields`.`shield` WHERE `deviceid` = '" + device + "' AND `node_eno_devices`.`shield` = '" + id + "'";
             msg.telegram = {"DeviceID":device, "Data":data, "OptData":opt_data };
         }
         else{
