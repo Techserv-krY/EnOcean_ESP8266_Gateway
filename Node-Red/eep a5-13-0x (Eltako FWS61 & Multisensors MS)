@@ -1,0 +1,126 @@
+if (msg.payload[1].length === 0 ){
+    return;
+}
+var shield = msg.payload[1][0].shield;
+var eep = msg.payload[1][0].eep;
+if (eep === "a5-13-0x"){
+    var name = msg.payload[1][0].name;
+    var device = msg.telegram.DeviceID;
+    shield_cut = shield.slice(0,-2);
+    baseid = msg.payload[1][0].baseid;
+    baseid = parseInt(baseid, 10).toString(16);
+    baseid = baseid.padStart(2,"0");
+    var baseid = shield_cut + baseid;
+    var profile = msg.telegram.Data[0];
+    var rssi = msg.telegram.OptData[5];
+    var wert1 = msg.payload[1][0].wert1;
+    var wert2 = msg.payload[1][0].wert2;
+    var wert3 = msg.payload[1][0].wert3;
+    var wert4 = msg.payload[1][0].wert4;
+    var gruppe1 = msg.payload[1][0].gruppe1;
+    var gruppe2 = msg.payload[1][0].gruppe2;
+    var gruppe3 = msg.payload[1][0].gruppe3;
+    var gruppe4 = msg.payload[1][0].gruppe4;
+    var build = msg.payload[1][0].build;
+    var floor = msg.payload[1][0].floor;
+    var room = msg.payload[1][0].room;
+    var ip = msg.payload[1][0].ip;
+    
+    var telegram_byte = msg.telegram.Data[4]; // speziel bei Eltako - FWS61
+    
+    if (telegram_byte === 0x18 || telegram_byte === 0x1a ) { // 0x1A bei "Regen" oder 0x18 bei "nicht Regen
+        telegram1();
+    }else if (telegram_byte === 0x28) { // telegram2 always 0x28
+        telegram2();
+    }
+}
+function telegram1 () {
+    var twilight = msg.telegram.Data[1];
+    var temp = msg.telegram.Data[2];
+    var wind = msg.telegram.Data[3];
+    var rain = msg.telegram.Data[4];
+    status = msg.telegram.Data[9];
+        
+    telegram1_send(twilight,temp,wind,rain,status);
+}
+
+function telegram2 () {
+    var west = msg.telegram.Data[1];
+    var sued = msg.telegram.Data[2];
+    var ost = msg.telegram.Data[3];
+    var res = msg.telegram.Data[4];
+    status = msg.telegram.Data[9];
+    
+    telegram2_send(west,sued,ost,res,status);
+}
+
+function telegram1_send(twilight,temp,wind,rain,status) {
+    msg.topic = ("/" + build + "/" + floor + "/" + room + "/" + name + "");
+    msg.payload = {"info":{
+                        "name":name,
+                        "device":device,
+                        "baseid":baseid,
+                        "shield":shield,
+                        "build":build,
+                        "floor":floor,
+                        "room":room,
+                        "ip":ip
+                        },
+                    "sql":{
+                        "wert1":wert1,
+                        "wert2":wert2,
+                        "wert3":wert3,
+                        "wert4":wert4,
+                        "gruppe1":gruppe1,
+                        "gruppe2":gruppe2,
+                        "gruppe3":gruppe3,
+                        "gruppe4":gruppe4
+                        },
+                    "telegram":{
+                        "twilight":twilight,
+                        "temperatur":temp,
+                        "wind":wind,
+                        "regen":rain,
+                        "status":status,
+                        "rssi":rssi
+                        }
+                };
+    node.send(msg);
+    return;
+}
+
+function telegram2_send(west,sued,ost,res,status) {
+    msg.topic = ("/" + build + "/" + floor + "/" + room + "/" + name + "");
+    msg.payload = {"info":{
+                        "name":name,
+                        "device":device,
+                        "baseid":baseid,
+                        "shield":shield,
+                        "build":build,
+                        "floor":floor,
+                        "room":room,
+                        "ip":ip
+                        },
+                    "sql":{
+                        "wert1":wert1,
+                        "wert2":wert2,
+                        "wert3":wert3,
+                        "wert4":wert4,
+                        "gruppe1":gruppe1,
+                        "gruppe2":gruppe2,
+                        "gruppe3":gruppe3,
+                        "gruppe4":gruppe4
+                        },
+                    "telegram":{
+                        "west":west,
+                        "sued":sued,
+                        "ost":ost,
+                        "reserve": res,
+                        "status":status,
+                        "rssi":rssi
+                        }
+                };
+    node.send(msg);
+    return;
+}
+return;
