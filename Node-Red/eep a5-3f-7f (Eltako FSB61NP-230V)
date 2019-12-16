@@ -1,8 +1,7 @@
-var shield = msg.payload[1][0].shield;
-var id = msg.ID;
-if (shield !== id){
+if (msg.payload[1].length === 0 ){
     return;
 }
+var shield = msg.payload[1][0].shield;
 var eep = msg.payload[1][0].eep;
 if (eep === "a5-3f-7f"){
     var name = msg.payload[1][0].name;
@@ -22,6 +21,10 @@ if (eep === "a5-3f-7f"){
     var gruppe2 = msg.payload[1][0].gruppe2;
     var gruppe3 = msg.payload[1][0].gruppe3;
     var gruppe4 = msg.payload[1][0].gruppe4;
+    var build = msg.payload[1][0].build;
+    var floor = msg.payload[1][0].floor;
+    var room = msg.payload[1][0].room;
+    var ip = msg.payload[1][0].ip;
     
     if (profile === 0xf6) {
         telegram1();
@@ -168,12 +171,16 @@ function telegram2 () {
 }
 
 function telegram_send () {
-    msg.topic = "select * from `node_eno_shields` where shield = '" + shield + "'";
-    msg.bundle = {"info":{
+    msg.topic = ("/" + build + "/" + floor + "/" + room + "/" + name + "");
+    msg.payload = {"info":{
                         "name":name,
                         "device":device,
                         "baseid":baseid,
-                        "shield":shield
+                        "shield":shield,
+                        "build":build,
+                        "floor":floor,
+                        "room":room,
+                        "ip":ip
                         },
                     "sql":{
                         "wert1":wert1,
