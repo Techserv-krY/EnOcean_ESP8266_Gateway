@@ -8,7 +8,7 @@ if (eep === "a5-3f-7f"){
     var device = msg.telegram.DeviceID;
     shield_cut = shield.slice(0,-2);
     baseid = msg.payload[1][0].baseid;
-    baseid = parseInt(baseid, 10).toString(16);
+    baseid = Number(baseid, 10).toString(16);
     baseid = baseid.padStart(2,"0");
     var baseid = shield_cut + baseid;
     var profile = msg.telegram.Data[0];
@@ -35,8 +35,8 @@ if (eep === "a5-3f-7f"){
 function telegram1 () {
         var db30 = msg.telegram.Data[1];
         status = msg.telegram.Data[6];
-        var cond_slider_mem = parseInt(global.get(name + "_%"));
-        var cond_slider_s_mem = parseInt(global.get(name + "_slate_%"));
+        var cond_slider_mem = Number(global.get(name + "_%"));
+        var cond_slider_s_mem = Number(global.get(name + "_slate_%"));
         switch(db30){
             case 0x01: {
                 
@@ -92,13 +92,13 @@ function telegram2 () {
     var taster = msg.telegram.Data[4];
     status = msg.telegram.Data[9];
     var time = (db3+db2);
-    var ist = parseInt(global.get(name + "_%"));
-    var ist_s = parseInt(global.get(name + "_slate_%"));
+    var ist = Number(global.get(name + "_%"));
+    var ist_s = Number(global.get(name + "_slate_%"));
     switch (way) {
         case 0x01: {
-            prozentup = parseInt((100/(wert1)*time).toFixed(0));
+            prozentup = Number((100/(wert1)*time).toFixed(0));
             prozent = (ist + prozentup);
-            prozentup_s = parseInt((100/(wert3)*time).toFixed(0));
+            prozentup_s = Number((100/(wert3)*time).toFixed(0));
             prozent_s = (ist_s + prozentup_s);
             if (prozent >= 100) {
                 condition = "Endlage oben";
@@ -130,9 +130,9 @@ function telegram2 () {
         }
         break;
         case 0x02: {
-            prozentdown = parseInt((100/(wert2)*time).toFixed(0));
+            prozentdown = Number((100/(wert2)*time).toFixed(0));
             prozent = (ist - prozentdown);
-            prozentdown_s = parseInt((100/(wert4)*time).toFixed(0));
+            prozentdown_s = Number((100/(wert4)*time).toFixed(0));
             prozent_s = (ist_s - prozentdown_s);
             if (prozent <= 0) {
                 condition = "Endlage unten";
@@ -201,7 +201,7 @@ function telegram_send () {
                         "rssi":rssi
                         }
                 };
-    node.send(msg);
+    node.send(msg,false);
 return;
 }
 return;
