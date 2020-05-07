@@ -8,7 +8,7 @@ if (eep === "a5-13-0x"){
     var device = msg.telegram.DeviceID;
     shield_cut = shield.slice(0,-2);
     baseid = msg.payload[1][0].baseid;
-    baseid = parseInt(baseid, 10).toString(16);
+    baseid = Number(baseid, 10).toString(16);
     baseid = baseid.padStart(2,"0");
     var baseid = shield_cut + baseid;
     var profile = msg.telegram.Data[0];
@@ -35,23 +35,43 @@ if (eep === "a5-13-0x"){
     }
 }
 function telegram1 () {
-    var twilight = msg.telegram.Data[1];
-    var temp = msg.telegram.Data[2];
-    var wind = msg.telegram.Data[3];
-    var rain = msg.telegram.Data[4];
+
+    twilight = msg.telegram.Data[1];
+    temp = msg.telegram.Data[2];
+    wind = msg.telegram.Data[3];
+    rain = msg.telegram.Data[4];
     status = msg.telegram.Data[9];
-        
+    
+    var twilight = Number((twilight*1000/255).toFixed(0));
+    var temp = Number((-40 + temp * 120 / 255).toFixed(2));//((temp*120/255)-40).toFixed(2);
+    var wind = Number((wind*70/255).toFixed(2));
+    if (rain === 0x1a){
+    rain = "Regen";
+    }
+    if (rain === 0x18){
+    rain = "Kein Regen";
+    }
+    
     telegram1_send(twilight,temp,wind,rain,status);
 }
 
 function telegram2 () {
-    var west = msg.telegram.Data[1];
-    var sued = msg.telegram.Data[2];
-    var ost = msg.telegram.Data[3];
+    west = msg.telegram.Data[1];
+    sued = msg.telegram.Data[2];
+    ost = msg.telegram.Data[3];
     var res = msg.telegram.Data[4];
     status = msg.telegram.Data[9];
     
-    telegram2_send(west,sued,ost,res,status);
+    sun = (west+sued+ost);
+    var sun = Number(((sun*150/255)/3).toFixed(0));
+    global.set("Sun", sun);
+
+
+    var west = Number((west*150/255).toFixed(0));
+    var sued = Number((sued*150/255).toFixed(0));
+    var ost = Number((ost*150/255).toFixed(0));
+    
+    telegram2_send(west,sued,ost,res,status,sun);
 }
 
 function telegram1_send(twilight,temp,wind,rain,status) {
@@ -76,7 +96,7 @@ function telegram1_send(twilight,temp,wind,rain,status) {
                         "gruppe3":gruppe3,
                         "gruppe4":gruppe4
                         },
-                    "telegram":{
+                    "telegram1":{
                         "twilight":twilight,
                         "temperatur":temp,
                         "wind":wind,
@@ -85,11 +105,11 @@ function telegram1_send(twilight,temp,wind,rain,status) {
                         "rssi":rssi
                         }
                 };
-    node.send(msg);
+    node.send(msg,false);
     return;
 }
 
-function telegram2_send(west,sued,ost,res,status) {
+function telegram2_send(west,sued,ost,res,status,sun) {
     msg.topic = ("/" + build + "/" + floor + "/" + room + "/" + name + "");
     msg.payload = {"info":{
                         "name":name,
@@ -111,16 +131,17 @@ function telegram2_send(west,sued,ost,res,status) {
                         "gruppe3":gruppe3,
                         "gruppe4":gruppe4
                         },
-                    "telegram":{
+                    "telegram2":{
                         "west":west,
                         "sued":sued,
                         "ost":ost,
                         "reserve": res,
                         "status":status,
-                        "rssi":rssi
+                        "rssi":rssi,
+                        "average":sun
                         }
                 };
-    node.send(msg);
+    node.send(msg,false);
     return;
 }
 return;
