@@ -1,124 +1,154 @@
-status = msg.payload.Telegram.zustand;
-button = msg.payload.Telegram.schalter;
+// Update the timers to the context store
+let timers = context.get('timers') || {};
+let intervals = context.get('intervals') || {};
+let buttons = context.get('buttons') || {};
+let light = flow.get('Licht') || {};
 
-dim_speed=500; // dimmgeschwindikeit 1-1000(1000 = 1s)//500
 
-switch(button){
-    case "AI":{
-        AI(button, status, dim_speed);    
-    }
-    break;
-    case "A0":{
-        A0(button, status, dim_speed);         
-    }
-    break;
-    case "BI":{
-        BI(button, status, dim_speed);    
-    }
-    break;
-    case "B0":{
-        B0(button, status, dim_speed);         
-    }
-    break;
-    default:{
-        return;
-    }
-}
+let status = msg.payload.telegram.zustand;
+let button = msg.payload.telegram.schalter;
 
-// ****** Output AI ****** \\
-function AI(button_AI, status_AI, dim_speed){
-    if (status_AI === "pressed" ){
-        timeout_AI = setTimeout(dimmer_AI, 3000);
-    }else if (status_AI === "released"){
-        clearTimeout(timeout_AI);
-        if (typeof dim_AI !== 'undefined'){
-        clearInterval(dim_AI);
+dim_speed=250; // dimmgeschwindikeit 1-1000(1000 = 1s)
+color_speed=500;//
+
+if (button === "A0" || button === "B0"  ){
+	UP(button, status, dim_speed, color_speed);    
+    }
+else if (button === "AI" || button === "BI"  ){ 
+    DOWN(button, status, dim_speed, color_speed);         
+	}
+else {
+
+    }
+
+    
+// ****** Output Button A0 or B0 ****** \\
+function UP(button, status, dim_speed, color_speed){
+    if (status === "pressed" ){
+        //node.warn('CREATING NEW TIMER FOR EXISTING TOPIC ' + button )
+        timers[button] = setTimeout(dimmerup, 1000);
+        
+        context.set('timers',timers);
+        
+        buttons[button] = false;
+        context.set('buttons', buttons);
+    }else if (status === "released"){
+        if ( timers[button] ) {
+            //node.warn('CANCELLING TIMER FOR EXISTING TOPIC ' + button )
+            clearTimeout(timers[button])
+            delete timers[button]
+            if ( intervals[button] ) {
+                clearInterval(intervals[button]);
+                delete intervals[button];  
+            }
+            if (buttons[button] === false ){
+                flow.set("prio",10);
+                node.send({topic:"Küche/Licht/cmnd/Panel_Kueche/POWER1", payload:true});
+            }
         }
     }
 
-function dimmer_AI() {
-        counter_AI = 0;
-        dim_AI = setInterval(function(){
-            x = counter_AI++*10 +10;
-            msg.payload = {"AI_dim": x};
-            node.send([msg, null, null, null],false);
-            if (x >= 100) {
-                clearInterval(dim_AI);
+    function dimmerup() {
+        if(light === true){
+            buttons[button] = true;
+            context.set('buttons', buttons);
+            counter_A0 = flow.get("dim");
+            counter_B0 = flow.get("color");
+            flow.set("prio",100);
+            if (button === "A0") {
+                intervals[button] = setInterval(function(){
+                counter_A0 +=10;
+                    if (counter_A0 > 100) {
+                        clearInterval(intervals[button]);
+                        delete intervals[button];   
+                    }else{
+                        node.send({topic:"Küche/Licht/cmnd/Panel_Kueche/Dimmer",payload: counter_A0},false); 
+                    }
+                }, dim_speed);
+                context.set('intervals',intervals);
             }
-        }, dim_speed); 
+            if (button === "B0") {
+                intervals[button] = setInterval(function(){
+                    counter_B0 += 36;
+                    if (counter_B0 > 500) {
+                        clearInterval(intervals[button]);
+                        delete intervals[button];
+                        node.send({topic:"Küche/Licht/cmnd/Panel_Kueche/CT",payload: 500},false); 
+                    }else{
+                        node.send({topic:"Küche/Licht/cmnd/Panel_Kueche/CT",payload: counter_B0},false); 
+                    }
+                }, color_speed);
+                context.set('intervals',intervals);
+            }
+        }else{
+            return;
+        }
     }
 }
 
 
-// ****** Output A0 ****** \\
-function A0(button_A0, status_A0, dim_speed){
-    if (status_A0 === "pressed" ){
-        timeout_A0 = setTimeout(dimmer_A0, 3000);    
-    }else if (status_A0 === "released"){
-        clearTimeout(timeout_A0);
-        if (typeof dim_A0 !== 'undefined'){
-        clearInterval(dim_A0);
+
+// ****** Output Button AI or BI ****** \\
+function DOWN(button, status, dim_speed, color_speed){
+    if (status === "pressed" ){
+        //node.warn('CREATING NEW TIMER FOR EXISTING TOPIC ' + button )
+        timers[button] = setTimeout(dimmerdown, 1000);
+        
+        context.set('timers',timers);
+        
+        buttons[button] = false;
+        context.set('buttons', buttons);
+    }else if (status === "released"){
+        if ( timers[button] ) {
+            //node.warn('CANCELLING TIMER FOR EXISTING TOPIC ' + button )
+            clearTimeout(timers[button])
+            delete timers[button]
+            if ( intervals[button] ) {
+                clearInterval(intervals[button]);
+                delete intervals[button];  
+            }
+            if (buttons[button] === false ){
+                flow.set("prio",10);
+                node.send({topic:"Küche/Licht/cmnd/Panel_Kueche/POWER1", payload:false});
+            }
         }
     }
 
-    function dimmer_A0 () {
-        counter_A0 = 10;
-        dim_A0 = setInterval(function(){
-            x = counter_A0--*10 -10;
-            msg.payload = {"A0_dim": x};
-            node.send([null, msg, null, null],false);
-            if (x <= 0) {
-                clearInterval(dim_A0);
+    function dimmerdown() {
+        if(light === true){
+            buttons[button] = true;
+            context.set('buttons', buttons);
+            counter_AI = flow.get("dim");
+            counter_BI = flow.get("color");
+            flow.set("prio",100);
+            if (button === "AI") {
+                intervals[button] = setInterval(function(){
+                counter_AI -=10;
+                    if (counter_AI < 10) {
+                        clearInterval(intervals[button]);
+                        delete intervals[button];   
+                    }else{
+                        node.send({topic:"Küche/Licht/cmnd/Panel_Kueche/Dimmer",payload: counter_AI},false); 
+                    }
+                }, dim_speed);
+                context.set('intervals',intervals);
             }
-        }, dim_speed); 
-    }
-}
-
-// ****** Output BI ****** \\
-function BI(button_BI, status_BI, dim_speed){
-    if (status_BI === "pressed" ){
-        timeout_BI = setTimeout(dimmer_BI, 3000);
-    }else if (status_BI === "released"){
-        clearTimeout(timeout_BI);
-        if (typeof dim_BI !== 'undefined'){
-        clearInterval(dim_BI);
+            if (button === "BI") {
+                intervals[button] = setInterval(function(){
+                    counter_BI -= 36;
+                    if (counter_BI < 153) {
+                        clearInterval(intervals[button]);
+                        delete intervals[button]; 
+                        node.send({topic:"Küche/Licht/cmnd/Panel_Kueche/CT",payload: 153},false); 
+                    }else{
+                        node.send({topic:"Küche/Licht/cmnd/Panel_Kueche/CT",payload: counter_BI},false); 
+                    }
+                }, color_speed);
+                context.set('intervals',intervals);
+            }
+        }else{
+            return;
         }
-    }
-
-function dimmer_BI() {
-        counter_BI = 0;
-        dim_BI = setInterval(function(){
-            x = counter_BI++*10 +10;
-            msg.payload = {"BI_dim": x};
-            node.send([null, null, msg, null],false);
-            if (x >= 100) {
-                clearInterval(dim_BI);
-            }
-        }, dim_speed); 
-    }
-}
-
-// ****** Output B0 ****** \\
-function B0(button_B0, status_B0, dim_speed){
-    if (status_B0 === "pressed" ){
-        timeout_B0 = setTimeout(dimmer_B0, 3000);    
-    }else if (status_B0 === "released"){
-        clearTimeout(timeout_B0);
-        if (typeof dim_B0 !== 'undefined'){
-        clearInterval(dim_B0);
-        }
-    }
-
-    function dimmer_B0 () {
-        counter_B0 = 10;
-        dim_B0 = setInterval(function(){
-            x = counter_B0--*10 -10;
-            msg.payload = {"B0_dim": x};
-            node.send([msg, null, null, null],false);
-            if (x <= 0) {
-                clearInterval(dim_B0);
-            }
-        }, dim_speed); 
     }
 }
 
