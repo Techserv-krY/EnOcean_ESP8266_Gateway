@@ -10,7 +10,7 @@ function extractMessages(data, currentIndex, messages) {
     }
 
     // Suche den Start der Nachricht
-    const messageStart = data.findIndex((byte, index) => byte === 85 && index >= currentIndex);
+    const messageStart = data.findIndex((byte, index) => byte === 0x55 && index >= currentIndex);
     // Wenn keine Nachricht gefunden wurde, gib die Nachrichten zurück
     if (messageStart === -1) {
         return messages;
@@ -83,9 +83,9 @@ function parseEnOceanTelegram(telegram) {
 }
 
 // Funktion zum Senden des geparsten Telegramms
-function send_out(parsedTelegram, _msgid) {
+function send_out(parsedTelegram, ID) {
     const { syncByte, dataLength, optionalLength, packetType, crc8Header, data, optionalData, crc8Data, headerCrcOk, dataCrcOk } = parsedTelegram;
-    let newMsg = { _msgid: _msgid };
+    let newMsg = { ID: ID };
     newMsg.payload = {
         syncByte,
         dataLength,
@@ -142,7 +142,7 @@ messages.forEach(message => {
         node.error(errorMessage);
     } else {
         // Rufe die send_out-Funktion mit dem geparsten Telegram auf
-        send_out(parsedTelegram, msg._msgid);
+        send_out(parsedTelegram, msg.ID);
     }
 });
 return;
