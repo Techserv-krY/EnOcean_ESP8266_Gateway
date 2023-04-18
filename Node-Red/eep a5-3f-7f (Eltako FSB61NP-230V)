@@ -9,7 +9,6 @@ const { shield, eep, name, wert1, wert2, wert3, wert4, gruppe1, gruppe2, gruppe3
 
 // Überprüfe, ob eep den Wert "a5-3f-7f" hat
 if (eep === "a5-3f-7f") {
-    node.warn("MARKIESEEEE");
 
     // Sammle relevante Geräteinformationen
     const device = msg.telegram.DeviceID;
@@ -26,56 +25,36 @@ if (eep === "a5-3f-7f") {
         setTimeout(telegram2, 5000);
     }
 }
-function telegram1 () {
-        var db30 = msg.telegram.Data[1];
-        status = msg.telegram.Data[6];
-        var cond_slider_mem = Number(global.get(name + "_%"));
-        var cond_slider_s_mem = Number(global.get(name + "_slate_%"));
-        switch(db30){
-            case 0x01: {
-                
-                condition = "Fährt hoch";
-                condition_s = "Moving";
-                cond_slider = cond_slider_mem;
-                cond_slider_s = cond_slider_s_mem;
-                global.set(name, "Fährt hoch");
-            }
-            break;
-            case 0x02: {
-                condition = "Fährt runter";
-                condition_s = "Moving";
-                cond_slider = cond_slider_mem;
-                cond_slider_s = cond_slider_s_mem;
-                global.set(name, "Fährt runter");
-            }
-            break;
-            case 0x50: {
-                condition = "Endlage unten";
-                condition_s = 0  + " %";
-                cond_slider = 0;
-                cond_slider_s = 0;
-                global.set(name, "Endlage unten");
-                global.set(name + "_%", 0);
-                global.set(name + "_slate_%", 0);
-            }
-            break;
-            case 0x70: {
-                condition = "Endlage oben";
-                condition_s = 100  + " %";
-                cond_slider = 100;
-                cond_slider_s = 100;
-                global.set(name, "Endlage oben");
-                global.set(name + "_%", 100);
-                global.set(name + "_slate_%", 100);
-            }
-            break;
-            
-            default: {
-            return;
-            }
-        }
-        telegram_send();
+
+function telegram1() {
+    const db30 = msg.telegram.Data[1];
+    const status = msg.telegram.Data[6];
+
+    const conditions = {
+        0x01: { condition: "Fährt hoch", condition_s: "Moving" },
+        0x02: { condition: "Fährt runter", condition_s: "Moving" },
+        0x50: { condition: "Endlage unten", condition_s: "0 %", slider: 0 },
+        0x70: { condition: "Endlage oben", condition_s: "100 %", slider: 100 }
+    };
+
+    const condSliderMem = Number(global.get("jalousie." + name + "[0].telegram.cond_slider"));
+    const condSliderSMem = Number(global.get("jalousie." + name + "[0].telegram.cond_slider_s"));
+
+    const result = conditions[db30];
+node.warn(result)
+    if (!result) {
+        return;
+    }
+
+    const { condition, condition_s, slider } = result;
+
+    const direction = slider === 0 ? "runtergefahren" : slider === 100 ? "hochgefahren" : null;
+    const cond_slider = slider !== undefined ? slider : condSliderMem;
+    const cond_slider_s = slider !== undefined ? slider : condSliderSMem;
+    node.warn(name + "," + condition + "," + condition_s + "," + cond_slider + "," + cond_slider_s + "," + direction +"," + status);
+    telegram_send(condition, condition_s, cond_slider, cond_slider_s, direction, status);
 }
+
 function telegram2 () {
     db3 = msg.telegram.Data[1];
     var db3 = (db3*25.5);
