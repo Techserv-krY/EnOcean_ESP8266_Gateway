@@ -138,7 +138,14 @@ messages.forEach(message => {
         const crcErrors = [];
         if (!parsedTelegram.headerCrcOk) crcErrors.push("header");
         if (!parsedTelegram.dataCrcOk) crcErrors.push("data");
-        const errorMessage = `Wrong CRC for ${crcErrors.join(" and ")} in telegram: ${JSON.stringify(message)}`;
+        
+        const crcValues = {
+            header: crc8(parsedTelegram.header),
+            data: crc8([...parsedTelegram.data, ...parsedTelegram.optionalData]),
+        };
+
+        const errorMessage = `Wrong CRC for ${crcErrors.join(" and ")} in telegram: ${JSON.stringify(message)}. Raw data: ${JSON.stringify(rawData)}. Wrong CRC: header - ${parsedTelegram.crc8Header}, data - ${parsedTelegram.crc8Data}. Correct CRC: header - ${crcValues.header}, data - ${crcValues.data}`;
+        
         node.error(errorMessage);
     } else {
         // Rufe die send_out-Funktion mit dem geparsten Telegram auf
