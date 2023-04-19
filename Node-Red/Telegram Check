@@ -2,30 +2,70 @@
 #https://github.com/Techserv-krY/EnOcean_ESP8266_Gateway/wiki/New-way-to-split-Telegram-and-check-and-cut-Multitelegram-and-Response-in-Node-Red
 #Check response telegram / crc check / send out ( shield oder device ) to mysql
 #
-// Funktion zum Extrahieren von Nachrichten aus Rohdaten mit Hilfe von Rekursion
-function extractMessages(data, currentIndex, messages) {
+// Funktion zum Extrahieren und Parsen von Nachrichten aus Rohdaten mit Hilfe von Rekursion
+function extractAndParseMessages(telegram, currentIndex, messages) {
     // Wenn der aktuelle Index größer oder gleich der Datenlänge ist, geben die Nachrichten zurück
-    if (currentIndex >= data.length) {
+    if (currentIndex >= telegram.length) {
         return messages;
     }
 
     // Suche den Start der Nachricht
-    const messageStart = data.findIndex((byte, index) => byte === 0x55 && index >= currentIndex);
+    const messageStart = telegram.findIndex((byte, index) => byte === 0x55 && index >= currentIndex);
+
     // Wenn keine Nachricht gefunden wurde, gib die Nachrichten zurück
     if (messageStart === -1) {
         return messages;
     }
 
-    // Suche den Start der nächsten Nachricht
-    const nextMessageStart = data.findIndex((byte, index) => byte === 0x55 && index > messageStart);
-    // Wenn keine nächste Nachricht gefunden wurde, setze das Nachrichtenende auf die Datenlänge
-    const messageEnd = nextMessageStart === -1 ? data.length : nextMessageStart;
-    // Extrahiere die Nachricht
-    const message = data.slice(messageStart, messageEnd);
+    // Extrahiere die relevanten Teile des Telegramms (einschließlich des Sync-Bytes im Header)
+    const header = telegram.slice(messageStart, messageStart + 5);
+    const dataLength = (header[1] << 8) | header[2];
+    const optionalLength = header[3];
+    const messageEnd = messageStart + 6 + dataLength + optionalLength;
 
-    // Rufe die Funktion rekursiv auf, um weitere Nachrichten zu extrahieren
-    return extractMessages(data, messageEnd, [...messages, message]);
+    const dataAndOptionalData = telegram.slice(messageStart + 6, messageEnd);
+    const data = dataAndOptionalData.slice(0, dataLength);
+    const optionalData = dataAndOptionalData.slice(dataLength, dataLength + optionalLength);
+
+    const crc8Header = telegram[messageStart + 5];
+    const crc8Data = telegram[messageEnd];
+
+    // Prüfe, ob der Header-CRC gültig ist (unter Ausschluss des Sync-Bytes)
+    const headerCrcOk = crc8(header.slice(1)) === crc8Header;
+
+    // Prüfe, ob der Daten-CRC gültig ist
+    const dataCrcOk = crc8(dataAndOptionalData) === crc8Data;
+
+    if (!headerCrcOk || !dataCrcOk) {
+        node.warn("Error condition reached");
+        const crcErrors = [];
+        if (!headerCrcOk) crcErrors.push("header");
+        if (!dataCrcOk) crcErrors.push("data");
+
+        const errorMessage = `Wrong CRC for ${crcErrors.join(" and ")} in telegram: ${JSON.stringify(telegram.slice(messageStart, messageEnd + 1))}. Raw data: ${JSON.stringify(telegram)}. CRC comparison: header - ${crc8Header} ${headerCrcOk ? '=' : '≠'} ${crc8(header.slice(1))}, data - ${crc8Data} ${dataCrcOk ? '=' : '≠'} ${crc8(dataAndOptionalData)}`;
+        node.error(errorMessage);
+        // Continue with the next message
+        return extractAndParseMessages(telegram, messageStart + 1, messages);
+    }
+
+    // Erstelle das geparste Telegramm
+    const parsedTelegram = {
+        header,
+        dataLength,
+        optionalLength,
+        packetType: header[4],
+        data,
+        optionalData,
+        crc8Header,
+        headerCrcOk,
+        crc8Data,
+        dataCrcOk,
+    };
+
+    // Rufe die Funktion rekursiv auf, um weitere Nachrichten zu extrahieren und zu parsen
+    return extractAndParseMessages(telegram, messageEnd + 1, [...messages, parsedTelegram]);
 }
+
 
 // CRC-8 Funktion zur Berechnung der Prüfsumme
 function crc8(data) {
@@ -47,57 +87,14 @@ function crc8(data) {
     return crc;
 }
 
-// Funktion zum Parsen eines EnOcean-Telegramms
-function parseEnOceanTelegram(telegram) {
-    // Extrahiere die relevanten Teile des Telegramms
-    const syncByte = telegram[0];
-    const dataLength = (telegram[1] << 8) | telegram[2];
-    const optionalLength = telegram[3];
-    const packetType = telegram[4];
-    const crc8Header = telegram[5];
-    const data = telegram.slice(6, 6 + dataLength);
-    const optionalData = telegram.slice(6 + dataLength, 6 + dataLength + optionalLength);
-    const crc8Data = telegram[telegram.length - 1];
-
-    // Berechne die CRC-8 Prüfsumme für den Header und die Daten
-    const header = telegram.slice(1, 5);
-    const calculatedCrc8Header = crc8(header);
-    const headerCrcOk = calculatedCrc8Header === crc8Header;
-
-    const calculatedCrc8Data = crc8([...data, ...optionalData]);
-    const dataCrcOk = calculatedCrc8Data === crc8Data;
-
-    // Gib das geparste Telegramm und den CRC-Status zurück
-    return {
-        syncByte,
-        dataLength,
-        optionalLength,
-        packetType,
-        crc8Header,
-        data,
-        optionalData,
-        crc8Data,
-        headerCrcOk,
-        dataCrcOk,
-    };
-}
 
 // Funktion zum Senden des geparsten Telegramms
 function send_out(parsedTelegram, ID) {
-    const { syncByte, dataLength, optionalLength, packetType, crc8Header, data, optionalData, crc8Data, headerCrcOk, dataCrcOk } = parsedTelegram;
+
+    const { dataLength, data, optionalData } = parsedTelegram;
+
     let newMsg = { ID: ID };
-    newMsg.payload = {
-        syncByte,
-        dataLength,
-        optionalLength,
-        packetType,
-        crc8Header,
-        data,
-        optionalData,
-        crc8Data,
-        headerCrcOk,
-        dataCrcOk
-    };
+    newMsg.payload = parsedTelegram
 
     // Überprüfe, ob ein neuer Shield gefunden wurde. Wenn ja, füge ihn in SQL ein, sonst wähle aus
     if (data[0] === 0x00 && data[1] === 0xff) {
@@ -124,32 +121,16 @@ function send_out(parsedTelegram, ID) {
     return;
 }
 
-// Ersetze rawData durch die tatsächlichen Eingangsdaten in deinem Node-RED-Flow
-const rawData = msg.payload;
+// Ersetze rawBuffer durch die tatsächlichen Eingangsdaten in deinem Node-RED-Flow
+const rawBuffer = msg.payload;
 
 // Extrahiere die Nachrichten aus den Rohdaten
-const messages = extractMessages(rawData, 0, []);
+const parsedTelegrams = extractAndParseMessages(rawBuffer, 0, []);
 
 // Verarbeite und sende jede Nachricht separat mit der ursprünglichen msg.id
-messages.forEach(message => {
-    const parsedTelegram = parseEnOceanTelegram(message);
-
-    if (!parsedTelegram.headerCrcOk || !parsedTelegram.dataCrcOk) {
-        const crcErrors = [];
-        if (!parsedTelegram.headerCrcOk) crcErrors.push("header");
-        if (!parsedTelegram.dataCrcOk) crcErrors.push("data");
-        
-        const crcValues = {
-            header: crc8(parsedTelegram.header),
-            data: crc8([...parsedTelegram.data, ...parsedTelegram.optionalData]),
-        };
-
-        const errorMessage = `Wrong CRC for ${crcErrors.join(" and ")} in telegram: ${JSON.stringify(message)}. Raw data: ${JSON.stringify(rawData)}. Wrong CRC: header - ${parsedTelegram.crc8Header}, data - ${parsedTelegram.crc8Data}. Correct CRC: header - ${crcValues.header}, data - ${crcValues.data}`;
-        
-        node.error(errorMessage);
-    } else {
-        // Rufe die send_out-Funktion mit dem geparsten Telegram auf
-        send_out(parsedTelegram, msg.ID);
-    }
+parsedTelegrams.forEach(parsedTelegram => {
+    // Rufe die send_out-Funktion mit dem geparsten Telegram auf
+    send_out(parsedTelegram, msg.ID);
 });
+
 return;
