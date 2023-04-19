@@ -5,17 +5,16 @@ if (!msg.payload[1] || msg.payload[1].length === 0) {
 
 // Extrahiere Gerätedaten aus msg.payload[1][0]
 const deviceData = msg.payload[1][0];
-const { shield, eep, name, wert1, wert2, wert3, wert4, gruppe1, gruppe2, gruppe3, gruppe4, build, floor, room, ip } = deviceData;
+const { shield, eep, name, deviceid, wert1, wert2, wert3, wert4, gruppe1, gruppe2, gruppe3, gruppe4, build, floor, room, ip } = deviceData;
+
+// Sammle relevante Geräteinformationen
+const baseid = shield.slice(0, -2) + Number(deviceData.baseid).toString(16).padStart(2, "0");
+const profile = msg.telegram.Data[0];
+const rssi = msg.telegram.OptData[5];
 
 // Überprüfe, ob eep den Wert "a5-3f-7f" hat
 if (eep === "a5-3f-7f") {
 
-    // Sammle relevante Geräteinformationen
-    const device = msg.telegram.DeviceID;
-    const baseid = shield.slice(0, -2) + Number(deviceData.baseid).toString(16).padStart(2, "0");
-    const profile = msg.telegram.Data[0];
-    const rssi = msg.telegram.OptData[5];
-    
     // Überprüfe das Profil und führe die entsprechende Funktion aus
     if (profile === 0xf6) {
         node.warn("telegram1");
@@ -26,10 +25,12 @@ if (eep === "a5-3f-7f") {
     }
 }
 
+// Funktion zum Verarbeiten von Telegramm 1
 function telegram1() {
     const db30 = msg.telegram.Data[1];
     const status = msg.telegram.Data[6];
 
+    // Bedingungen und zugehörige Ergebnisse
     const conditions = {
         0x01: { condition: "Fährt hoch", condition_s: "Moving" },
         0x02: { condition: "Fährt runter", condition_s: "Moving" },
@@ -37,144 +38,156 @@ function telegram1() {
         0x70: { condition: "Endlage oben", condition_s: "100 %", slider: 100 }
     };
 
+    // Hole die gespeicherten Werte für cond_slider und cond_slider_s
     const condSliderMem = Number(global.get("jalousie." + name + "[0].telegram.cond_slider"));
     const condSliderSMem = Number(global.get("jalousie." + name + "[0].telegram.cond_slider_s"));
 
+    // Bestimme das Ergebnis basierend auf dem Wert von db30
     const result = conditions[db30];
-node.warn(result)
+    node.warn(result)
     if (!result) {
         return;
     }
 
+    // Extrahiere die Ergebnisse
     const { condition, condition_s, slider } = result;
 
+    // Bestimme die Richtung
     const direction = slider === 0 ? "runtergefahren" : slider === 100 ? "hochgefahren" : null;
+
+    // Setze die Werte für cond_slider und cond_slider_s
     const cond_slider = slider !== undefined ? slider : condSliderMem;
     const cond_slider_s = slider !== undefined ? slider : condSliderSMem;
-    node.warn(name + "," + condition + "," + condition_s + "," + cond_slider + "," + cond_slider_s + "," + direction +"," + status);
+
+    // Warnmeldung ausgeben und die Funktion telegram_send() aufrufen
+    node.warn(name + "," + condition + "," + condition_s + "," + cond_slider + "," + cond_slider_s + "," + direction + "," + status);
     telegram_send(condition, condition_s, cond_slider, cond_slider_s, direction, status);
 }
 
-function telegram2 () {
-    db3 = msg.telegram.Data[1];
-    var db3 = (db3*25.5);
-    db2 = msg.telegram.Data[2];
-    db2 = (db2*100);
-    var db2 = (db2/1000);
-    var way = msg.telegram.Data[3];
-    var taster = msg.telegram.Data[4];
-    status = msg.telegram.Data[9];
-    var time = (db3+db2);
-    var ist = Number(global.get(name + "_%"));
-    var ist_s = Number(global.get(name + "_slate_%"));
-    switch (way) {
-        case 0x01: {
-            prozentup = Number((100/(wert1)*time).toFixed(0));
-            prozent = (ist + prozentup);
-            prozentup_s = Number((100/(wert3)*time).toFixed(0));
-            prozent_s = (ist_s + prozentup_s);
-            if (prozent >= 100) {
-                condition = "Endlage oben";
-                condition_s = 100 + " %";
-                cond_slider = 100;
-                cond_slider_s = 100;
-                global.set(name, "hochgefahren");
-                global.set(name + "_%", 100);
-                global.set(name + "_slate_%", 100);
-                }else{
-                if (prozent_s >= 100){
-                    condition = prozent + " %";
-                    condition_s = 100 + " %";
-                    cond_slider = prozent;
-                    cond_slider_s = 100;
-                    global.set(name, "hochgefahren");
-                    global.set(name + "_%", prozent);
-                    global.set(name + "_slate_%", 100);
-                }else{
-                    condition = prozent + " %";
-                    condition_s = prozent_s + " %";
-                    cond_slider = prozent;
-                    cond_slider_s = prozent_s;
-                    global.set(name, "hochgefahren");                                
-                    global.set(name + "_%", prozent);
-                    global.set(name + "_slate_%", prozent_s);
-                }
-            }
-        }
-        break;
-        case 0x02: {
-            prozentdown = Number((100/(wert2)*time).toFixed(0));
-            prozent = (ist - prozentdown);
-            prozentdown_s = Number((100/(wert4)*time).toFixed(0));
-            prozent_s = (ist_s - prozentdown_s);
-            if (prozent <= 0) {
-                condition = "Endlage unten";
-                condition_s = 0 + " %";
-                cond_slider = 0;
-                cond_slider_s = 0;
-                global.set(name, "runtergefahren");
-                global.set(name + "_%", 0);
-                global.set(name + "_slate_%", 0);
-            }else{
-                if (prozent_s <= 0){
-                    condition = prozent + " %";
-                    condition_s = 0 + " %";
-                    cond_slider = prozent;
-                    cond_slider_s = 0;
-                    global.set(name, "runtergefahren");
-                    global.set(name + "_%", prozent);
-                    global.set(name + "_slate_%", 0);
-                }else{
-                    condition = prozent + " %";
-                    condition_s = prozent_s + " %";
-                    cond_slider = prozent;
-                    cond_slider_s = prozent_s;
-                    global.set(name, "runtergefahren");
-                    global.set(name + "_%", prozent);
-                    global.set(name + "_slate_%", prozent_s);
-                }
-            }
-        }
-        break;
-        default: {
-        return;
-        }
+
+// Funktion zum Verarbeiten von Telegramm 2
+function telegram2() {
+    // Extrahiere Daten aus dem Telegramm
+    const data = msg.telegram.Data;
+    const [db3, db2, way] = [data[1] * 25.5, data[2] * 0.1, data[3]];
+    const time = db3 + db2; // Berechne die Zeit aus db3 und db2
+    // const taster = msg.telegram.Data[4]; // Taster-Information (auskommentiert)
+    const status = msg.telegram.Data[9]; // Status-Information
+
+    // Hole die aktuellen Werte für cond_slider und cond_slider_s
+    const [ist, ist_s] = [global.get("jalousie." + name + "[0].telegram.cond_slider"), global.get("jalousie." + name + "[0].telegram.cond_slider_s")].map(Number);
+
+    // Funktion, um den Prozentsatz basierend auf Wert und Zeit zu berechnen
+    const calcPercent = (value, time) => Number((100 / value * time).toFixed(2));
+
+    // Variablen, um die berechneten Werte für Prozentsatz, Slider und Richtung zu speichern
+    let [prozent, prozent_s, cond_slider, cond_slider_s, direction] = [0, 0, 0, 0, ''];
+
+    // Berechne Prozentsatz, Slider und Richtung basierend auf der 'way'-Variable
+    if (way === 0x01) {
+        [prozent, prozent_s] = [ist + calcPercent(wert1, time), ist_s + calcPercent(wert3, time)];
+        direction = 'hochgefahren';
+    } else if (way === 0x02) {
+        [prozent, prozent_s] = [ist - calcPercent(wert2, time), ist_s - calcPercent(wert4, time)];
+        direction = 'runtergefahren';
+    } else {
+        return; // Beende die Funktion, wenn 'way' keinen der erwarteten Werte hat
     }
-    telegram_send();
+
+    // Funktion zum Berechnen der Endpositionen für cond_slider und cond_slider_s
+    const endPosition = (p, ps) => [p <= 100 ? p : 100, ps <= 100 ? ps : 100];
+
+    // Berechne die Zustände condition und condition_s basierend auf den berechneten Prozentsätzen
+    const [condition, condition_s] = [(prozent <= 100 && prozent >= 0) ? `${prozent} %` : (prozent < 0) ? 'Endlage unten' : 'Endlage oben', (prozent_s <= 100 && prozent_s >= 0) ? `${prozent_s} %` : (prozent_s < 0) ? '0 %' : '100 %'];
+
+    // Aktualisiere die Werte von cond_slider und cond_slider_s basierend auf den berechneten Endpositionen
+    [cond_slider, cond_slider_s] = endPosition(prozent, prozent_s);
+
+    // Rufe die Funktion telegram_send() mit den berechneten Werten auf
+    telegram_send(condition, condition_s, cond_slider, cond_slider_s, direction, status);
 }
 
-function telegram_send () {
+
+
+function telegram_send(condition, condition_s, cond_slider, cond_slider_s, direction, status) {
+    let devices = global.get("jalousie") || {};
+    const devicename = Object.keys(devices);
+     node.warn(devicename);
+    save = {
+        "info": {
+            "name": name,
+            "device": deviceid,
+            "baseid": baseid,
+            "shield": shield,
+            "build": build,
+            "floor": floor,
+            "room": room,
+            "ip": ip
+        },
+        "sql": {
+            "wert1": wert1,
+            "wert2": wert2,
+            "wert3": wert3,
+            "wert4": wert4,
+            "gruppe1": gruppe1,
+            "gruppe2": gruppe2,
+            "gruppe3": gruppe3,
+            "gruppe4": gruppe4
+        },
+        "telegram": {
+            "condition": condition,
+            "condition_s": condition_s,
+            "cond_slider": cond_slider,
+            "cond_slider_s": cond_slider_s,
+            "direction": direction,
+            "time": Date.now(),
+            "human_time": new Date().toLocaleString(),
+            "status": status,
+            "rssi": rssi
+        }
+    };
+    if (devicename.includes(name)) {
+        global.set("jalousie." + name + "[0]", save);
+        // node.warn(name+"   "+true);
+    } else {
+        //  node.warn(name+"   "+false);
+        devices[name] = [save];
+        global.set("jalousie", devices);
+    }
+
     msg.topic = ("/" + build + "/" + floor + "/" + room + "/" + name + "");
-    msg.payload = {"info":{
-                        "name":name,
-                        "device":device,
-                        "baseid":baseid,
-                        "shield":shield,
-                        "build":build,
-                        "floor":floor,
-                        "room":room,
-                        "ip":ip
-                        },
-                    "sql":{
-                        "wert1":wert1,
-                        "wert2":wert2,
-                        "wert3":wert3,
-                        "wert4":wert4,
-                        "gruppe1":gruppe1,
-                        "gruppe2":gruppe2,
-                        "gruppe3":gruppe3,
-                        "gruppe4":gruppe4
-                        },
-                    "telegram":{
-                        "condition":condition,
-                        "condition_s":condition_s,
-                        "cond_slider":cond_slider,
-                        "cond_slider_s":cond_slider_s,
-                        "status":status,
-                        "rssi":rssi
-                        }
-                };
-    node.send(msg,false);
-return;
+    msg.payload = {
+        "info": {
+            "name": name,
+            "device": deviceid,
+            "baseid": baseid,
+            "shield": shield,
+            "build": build,
+            "floor": floor,
+            "room": room,
+            "ip": ip
+        },
+        "sql": {
+            "wert1": wert1,
+            "wert2": wert2,
+            "wert3": wert3,
+            "wert4": wert4,
+            "gruppe1": gruppe1,
+            "gruppe2": gruppe2,
+            "gruppe3": gruppe3,
+            "gruppe4": gruppe4
+        },
+        "telegram": {
+            "condition": condition,
+            "condition_s": condition_s,
+            "cond_slider": cond_slider,
+            "cond_slider_s": cond_slider_s,
+            "status": status,
+            "rssi": rssi
+        }
+    };
+    node.send(msg);
+    return;
 }
+
 return;
