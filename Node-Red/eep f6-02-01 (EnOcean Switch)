@@ -64,7 +64,7 @@ function processTelegram () {
 // Diese Funktion speichert die berechneten Werte und Zustände der Jalousie in den globalen Variablen,
 // erstellt eine neue Nachricht mit den relevanten Informationen und sendet sie an den nächsten Node.
 function sendTelegram(schalter, zustand) {
-    let devices = global.get("jalousie") || {};
+    let devices = global.get("schalter") || {};
     const devicename = Object.keys(devices);
     
  // Erstelle das 'info'-Objekt mit Geräteinformationen
@@ -106,15 +106,15 @@ function sendTelegram(schalter, zustand) {
 
     // Speichere die berechneten Werte und Zustände in den globalen Variablen
     /* Zusammengefasst aktualisiert dieser Codeabschnitt die globalen Variablen
-     * mit den berechneten Werten und Zuständen der Jalousie,
+     * mit den berechneten Werten und Zuständen der Schalter,
      * indem er entweder die vorhandenen Informationen aktualisiert (wenn das Gerät bereits gespeichert ist)
      * oder ein neues Gerät in den globalen Variablen hinzufügt (wenn das Gerät noch nicht gespeichert ist).
      */
     if (devicename.includes(name)) {
-        global.set("jalousie." + name + "[0]", save);
+        global.set("schalter." + name + "[0]", save);
     } else {
         devices[name] = [save];
-        global.set("jalousie", devices);
+        global.set("schalter", devices);
     }
 
     // Entferne die nicht benötigten Felder aus dem 'telegram'-Objekt für die Nachricht
