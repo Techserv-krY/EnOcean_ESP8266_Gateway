@@ -1,21 +1,26 @@
-// Prüfe, ob msg.payload[1] existiert und nicht leer ist
+// Prüfe, ob msg.payload[1] existiert und nicht leer ist; wenn nicht, beende die Ausführung
 if (!msg.payload[1] || msg.payload[1].length === 0) {
     return;
 }
 
-// Extrahiere Gerätedaten aus msg.payload[1][0]
+// Extrahiere Gerätedaten aus msg.payload[1][0] und speichere sie in entsprechenden Variablen
 const deviceData = msg.payload[1][0];
 const { shield, eep, name, deviceid, wert1, wert2, wert3, wert4, gruppe1, gruppe2, gruppe3, gruppe4, build, floor, room, ip } = deviceData;
 
-// Sammle relevante Geräteinformationen
+// Überprüfe, ob die msg.ID der Shield-ID entspricht; wenn nicht, beende die Ausführung
+// Diese Prüfung ist wichtig, wenn mehrere Gateways im Einsatz sind
+if (msg.ID !== shield) {
+    return;
+}
+// Sammle relevante Geräteinformationen und erstelle die baseid aus shield und baseid
 const baseid = shield.slice(0, -2) + Number(deviceData.baseid).toString(16).padStart(2, "0");
 const profile = msg.telegram.Data[0];
 const rssi = msg.telegram.OptData[5];
 
-// Überprüfe, ob eep den Wert "a5-3f-7f" hat
+// Überprüfe, ob eep den Wert "a5-3f-7f" hat, und führe abhängig vom Profil die entsprechende Funktion aus
 if (eep === "a5-3f-7f") {
 
-    // Überprüfe das Profil und führe die entsprechende Funktion aus
+    // Überprüfe das Profil und führe die entsprechende Funktion aus (telegram1() oder telegram2() mit Verzögerung)
     if (profile === 0xf6) {
         node.warn("telegram1");
         telegram1();
@@ -25,7 +30,9 @@ if (eep === "a5-3f-7f") {
     }
 }
 
-// Funktion zum Verarbeiten von Telegramm 1
+// Funktion zum Verarbeiten von Telegramm 1 (telegram1)
+// Diese Funktion verarbeitet das erste Telegramm, indem sie die relevanten Informationen extrahiert,
+// die Zustände und Positionen der Jalousie berechnet und die Ergebnisse an die telegram_send Funktion weiterleitet.
 function telegram1() {
     const db30 = msg.telegram.Data[1];
     const status = msg.telegram.Data[6];
@@ -44,7 +51,6 @@ function telegram1() {
 
     // Bestimme das Ergebnis basierend auf dem Wert von db30
     const result = conditions[db30];
-    node.warn(result)
     if (!result) {
         return;
     }
@@ -65,12 +71,16 @@ function telegram1() {
 }
 
 
-// Funktion zum Verarbeiten von Telegramm 2
+// Funktion zum Verarbeiten von Telegramm 2 (telegram2)
+// Diese Funktion verarbeitet das zweite Telegramm, indem sie die relevanten Informationen extrahiert,
+// die Zustände und Positionen der Jalousie basierend auf der Fahrtrichtung und Fahrzeit berechnet
+// und die Ergebnisse an die telegram_send Funktion weiterleitet.
 function telegram2() {
     // Extrahiere Daten aus dem Telegramm
     const data = msg.telegram.Data;
     const [db3, db2, way] = [data[1] * 25.5, data[2] * 0.1, data[3]];
     const time = db3 + db2; // Berechne die Zeit aus db3 und db2
+    node.warn(time);
     // const taster = msg.telegram.Data[4]; // Taster-Information (auskommentiert)
     const status = msg.telegram.Data[9]; // Status-Information
 
@@ -94,100 +104,97 @@ function telegram2() {
         return; // Beende die Funktion, wenn 'way' keinen der erwarteten Werte hat
     }
 
-    // Funktion zum Berechnen der Endpositionen für cond_slider und cond_slider_s
-    const endPosition = (p, ps) => [p <= 100 ? p : 100, ps <= 100 ? ps : 100];
+       // Funktion, um die Position der Lamellen zu ermitteln (zwischen 0 und 100)
+    const getPosition = (value) => value >= 100 ? 100 : value <= 0 ? 0 : value;
 
-    // Berechne die Zustände condition und condition_s basierend auf den berechneten Prozentsätzen
-    const [condition, condition_s] = [(prozent <= 100 && prozent >= 0) ? `${prozent} %` : (prozent < 0) ? 'Endlage unten' : 'Endlage oben', (prozent_s <= 100 && prozent_s >= 0) ? `${prozent_s} %` : (prozent_s < 0) ? '0 %' : '100 %'];
+    // Funktion, um den Status der Jalousie basierend auf dem berechneten Prozentsatz zu ermitteln
+    const getStatus = (value) => (value < 100 && value > 0) ? `${value} %` : (value <= 0) ? 'Endlage unten' : 'Endlage oben';
 
-    // Aktualisiere die Werte von cond_slider und cond_slider_s basierend auf den berechneten Endpositionen
-    [cond_slider, cond_slider_s] = endPosition(prozent, prozent_s);
+    // Funktion, um den Status der Jalousie basierend auf dem berechneten Prozentsatz für die Lamellen zu ermitteln
+    const getStatus_s = (value) => (value < 100 && value > 0) ? `${value} %` : (value <= 0) ? '0 %' : '100 %';
+
+    // Ermittle den Zustand und Zustand_s (Lamellen) basierend auf den berechneten Prozentsätzen
+    const [condition, condition_s] = [getStatus(prozent), getStatus_s(prozent_s)];
+
+    // Ermittle die Positionen von cond_slider und cond_slider_s basierend auf den berechneten Prozentsätzen
+    [cond_slider, cond_slider_s] = [getPosition(prozent), getPosition(prozent_s)];
+
 
     // Rufe die Funktion telegram_send() mit den berechneten Werten auf
+    node.warn(name + "," + condition + "," + condition_s + "," + cond_slider + "," + cond_slider_s + "," + direction + "," + status);
     telegram_send(condition, condition_s, cond_slider, cond_slider_s, direction, status);
 }
 
 
-
+// Funktion zum Senden des Telegramms (telegram_send)
+// Diese Funktion speichert die berechneten Werte und Zustände der Jalousie in den globalen Variablen,
+// erstellt eine neue Nachricht mit den relevanten Informationen und sendet sie an den nächsten Node.
 function telegram_send(condition, condition_s, cond_slider, cond_slider_s, direction, status) {
     let devices = global.get("jalousie") || {};
     const devicename = Object.keys(devices);
-     node.warn(devicename);
-    save = {
-        "info": {
-            "name": name,
-            "device": deviceid,
-            "baseid": baseid,
-            "shield": shield,
-            "build": build,
-            "floor": floor,
-            "room": room,
-            "ip": ip
-        },
-        "sql": {
-            "wert1": wert1,
-            "wert2": wert2,
-            "wert3": wert3,
-            "wert4": wert4,
-            "gruppe1": gruppe1,
-            "gruppe2": gruppe2,
-            "gruppe3": gruppe3,
-            "gruppe4": gruppe4
-        },
-        "telegram": {
-            "condition": condition,
-            "condition_s": condition_s,
-            "cond_slider": cond_slider,
-            "cond_slider_s": cond_slider_s,
-            "direction": direction,
-            "time": Date.now(),
-            "human_time": new Date().toLocaleString(),
-            "status": status,
-            "rssi": rssi
-        }
+    
+ // Erstelle das 'info'-Objekt mit Geräteinformationen
+    const info = {
+        "name": name,
+        "device": deviceid,
+        "baseid": baseid,
+        "shield": shield,
+        "build": build,
+        "floor": floor,
+        "room": room,
+        "ip": ip
     };
+    
+// Erstelle das 'sql'-Objekt mit den Werten und Gruppeninformationen
+    const sql = {
+        "wert1": wert1,
+        "wert2": wert2,
+        "wert3": wert3,
+        "wert4": wert4,
+        "gruppe1": gruppe1,
+        "gruppe2": gruppe2,
+        "gruppe3": gruppe3,
+        "gruppe4": gruppe4
+    };
+    
+// Erstelle das 'telegram'-Objekt mit den berechneten Werten und Zuständen der Jalousie
+    const telegram = {
+        "condition": condition,
+        "condition_s": condition_s,
+        "cond_slider": cond_slider,
+        "cond_slider_s": cond_slider_s,
+        "direction": direction,
+        "time": Date.now(),
+        "human_time": new Date().toLocaleString(),
+        "status": status,
+        "rssi": rssi
+    };
+
+ // Kombiniere die erstellten Objekte in das 'save'-Objekt
+    const save = { info, sql, telegram };
+
+    // Speichere die berechneten Werte und Zustände in den globalen Variablen
+    /* Zusammengefasst aktualisiert dieser Codeabschnitt die globalen Variablen
+     * mit den berechneten Werten und Zuständen der Jalousie,
+     * indem er entweder die vorhandenen Informationen aktualisiert (wenn das Gerät bereits gespeichert ist)
+     * oder ein neues Gerät in den globalen Variablen hinzufügt (wenn das Gerät noch nicht gespeichert ist).
+     */
     if (devicename.includes(name)) {
         global.set("jalousie." + name + "[0]", save);
-        // node.warn(name+"   "+true);
     } else {
-        //  node.warn(name+"   "+false);
         devices[name] = [save];
         global.set("jalousie", devices);
     }
 
+    // Entferne die nicht benötigten Felder aus dem 'telegram'-Objekt für die Nachricht
+    const { direction: _, time: __, human_time: ___, ...telegramPayload } = telegram;
+
+    // Setze das Topic und den Payload der Nachricht
     msg.topic = ("/" + build + "/" + floor + "/" + room + "/" + name + "");
-    msg.payload = {
-        "info": {
-            "name": name,
-            "device": deviceid,
-            "baseid": baseid,
-            "shield": shield,
-            "build": build,
-            "floor": floor,
-            "room": room,
-            "ip": ip
-        },
-        "sql": {
-            "wert1": wert1,
-            "wert2": wert2,
-            "wert3": wert3,
-            "wert4": wert4,
-            "gruppe1": gruppe1,
-            "gruppe2": gruppe2,
-            "gruppe3": gruppe3,
-            "gruppe4": gruppe4
-        },
-        "telegram": {
-            "condition": condition,
-            "condition_s": condition_s,
-            "cond_slider": cond_slider,
-            "cond_slider_s": cond_slider_s,
-            "status": status,
-            "rssi": rssi
-        }
-    };
+    msg.payload = { info, sql, telegram: telegramPayload };
+
+    // Sende die Nachricht an den nächsten Node
     node.send(msg);
-    return;
 }
 
 return;
